@@ -3,9 +3,7 @@ import { createRoute } from 'honox/factory'
 export default createRoute((c) => {
   return c.render(
     <div className="flex min-h-screen bg-gray-100 font-sans">
-      <head>
-        <title>Admin Panel - Dashboard</title>
-      </head>
+      {/* TAG <head> DIHAPUS DARI SINI UNTUK MENCEGAH CSS RUSAK */}
 
       {/* Sidebar Admin */}
       <aside className="w-64 bg-gray-900 text-white flex flex-col hidden md:flex">
@@ -83,6 +81,8 @@ export default createRoute((c) => {
           </div>
         </div>
       </main>
-    </div>
+    </div>,
+    // Title dipindahkan ke parameter render di sini
+    { title: 'Admin Panel - Dashboard' }
   )
 })
