@@ -1,88 +1,46 @@
 import { createRoute } from 'honox/factory'
 
-export default createRoute((c) => {
+export default createRoute(async (c) => {
+  // Opsi: Anda bisa query data asli di sini nanti, untuk sekarang kita pakai data statis sebagai contoh
   return c.render(
-    <div className="flex min-h-screen bg-gray-100 font-sans">
-      {/* TAG <head> DIHAPUS DARI SINI UNTUK MENCEGAH CSS RUSAK */}
-
-      {/* Sidebar Admin */}
-      <aside className="w-64 bg-gray-900 text-white flex flex-col hidden md:flex">
-        <div className="h-16 flex items-center px-6 border-b border-gray-800 font-bold text-xl text-blue-400">
-          AdminPanel.
+    <div className="p-6 md:p-10 max-w-7xl mx-auto w-full">
+      <div className="mb-8">
+        <h1 className="text-3xl font-extrabold text-gray-900">Ikhtisar Bisnis</h1>
+        <p className="text-gray-500 mt-1">Pantau seluruh aktivitas metrik website dan klien Anda.</p>
+      </div>
+      
+      {/* Kartu Statistik */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col">
+          <div className="text-sm font-bold text-gray-500 mb-2 uppercase tracking-wide">Total Member</div>
+          <div className="text-4xl font-black text-gray-900">128</div>
+          <div className="mt-auto pt-4 text-sm text-green-600 font-medium">+12 bulan ini</div>
         </div>
         
-        <div className="flex-grow overflow-y-auto py-6 px-4 space-y-1">
-          <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 mt-4 px-2">Menu Utama</div>
-          <a href="/admin/dashboard" className="block px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium">Dashboard</a>
-          
-          <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 mt-6 px-2">CMS</div>
-          <a href="/admin/pages" className="block px-4 py-2.5 text-gray-300 hover:bg-gray-800 hover:text-white rounded-lg transition">Pages & Landing</a>
-          <a href="/admin/blog" className="block px-4 py-2.5 text-gray-300 hover:bg-gray-800 hover:text-white rounded-lg transition">Blog & Kategori</a>
-          <a href="/admin/menus" className="block px-4 py-2.5 text-gray-300 hover:bg-gray-800 hover:text-white rounded-lg transition">Menu Management</a>
-
-          <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 mt-6 px-2">Business</div>
-          <a href="/admin/crm" className="block px-4 py-2.5 text-gray-300 hover:bg-gray-800 hover:text-white rounded-lg transition">Users & CRM</a>
-          <a href="/admin/projects" className="block px-4 py-2.5 text-gray-300 hover:bg-gray-800 hover:text-white rounded-lg transition">Project Tracking</a>
-          <a href="/admin/contacts" className="block flex justify-between items-center px-4 py-2.5 text-gray-300 hover:bg-gray-800 hover:text-white rounded-lg transition">
-            <span>Kontak & Tiket</span>
-            <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">3</span>
-          </a>
-
-          <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 mt-6 px-2">System</div>
-          <a href="/admin/settings" className="block px-4 py-2.5 text-gray-300 hover:bg-gray-800 hover:text-white rounded-lg transition">Pengaturan Global</a>
+        <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col">
+          <div className="text-sm font-bold text-gray-500 mb-2 uppercase tracking-wide">Proyek Aktif</div>
+          <div className="text-4xl font-black text-blue-600">14</div>
+          <div className="mt-auto pt-4 text-sm text-gray-400 font-medium">Sedang berjalan</div>
         </div>
-
-        <div className="p-4 border-t border-gray-800">
-          <button className="w-full bg-gray-800 text-gray-300 px-4 py-2 rounded-lg font-medium hover:bg-red-600 hover:text-white transition"
-            onclick="document.cookie='auth_token=; Max-Age=0; path=/'; window.location.href='/';">
-            Keluar
-          </button>
+        
+        <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col">
+          <div className="text-sm font-bold text-gray-500 mb-2 uppercase tracking-wide">Tiket Masuk</div>
+          <div className="text-4xl font-black text-red-500">3</div>
+          <div className="mt-auto pt-4 text-sm text-red-500 font-medium">Butuh balasan!</div>
         </div>
-      </aside>
-
-      {/* Area Konten Utama */}
-      <main className="flex-1 flex flex-col">
-        {/* Topbar */}
-        <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6">
-          <div className="font-semibold text-gray-800">Ikhtisar Sistem</div>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-500">Mode Admin</span>
-            <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold">A</div>
-          </div>
-        </header>
-
-        {/* Dashboard Content */}
-        <div className="p-6 flex-grow overflow-y-auto">
-          <h1 className="text-2xl font-bold text-gray-900 mb-6">Selamat Datang, Admin</h1>
-          
-          {/* Kartu Statistik */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
-              <div className="text-sm text-gray-500 mb-1">Total Klien / Member</div>
-              <div className="text-3xl font-bold text-gray-900">128</div>
-            </div>
-            <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
-              <div className="text-sm text-gray-500 mb-1">Proyek Aktif</div>
-              <div className="text-3xl font-bold text-gray-900">14</div>
-            </div>
-            <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
-              <div className="text-sm text-gray-500 mb-1">Tiket Belum Dibaca</div>
-              <div className="text-3xl font-bold text-red-600">3</div>
-            </div>
-            <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
-              <div className="text-sm text-gray-500 mb-1">Artikel Blog</div>
-              <div className="text-3xl font-bold text-gray-900">42</div>
-            </div>
-          </div>
-
-          {/* Area Kosong untuk Modul Selanjutnya */}
-          <div className="bg-white p-8 rounded-2xl border border-gray-200 shadow-sm text-center">
-            <p className="text-gray-500">Pilih menu di samping untuk mulai mengelola data sistem.</p>
-          </div>
+        
+        <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col">
+          <div className="text-sm font-bold text-gray-500 mb-2 uppercase tracking-wide">Artikel Blog</div>
+          <div className="text-4xl font-black text-gray-900">42</div>
+          <div className="mt-auto pt-4 text-sm text-gray-400 font-medium">Telah dipublikasi</div>
         </div>
-      </main>
+      </div>
+
+      <div className="bg-blue-50 border border-blue-100 p-8 rounded-2xl">
+        <h3 className="text-lg font-bold text-blue-900 mb-2">Semua Sistem Terhubung</h3>
+        <p className="text-blue-800 text-sm">Gunakan menu di sebelah kiri untuk mengelola konten CMS, meninjau portofolio, membalas tiket, atau mengatur proyek portal klien. Struktur modular Anda siap digunakan.</p>
+      </div>
     </div>,
-    // Title dipindahkan ke parameter render di sini
-    { title: 'Admin Panel - Dashboard' }
+    { title: 'Dashboard - Pasdigi Workspace' }
   )
 })
