@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "skipLibCheck": true,
+    "allowSyntheticDefaultImports": true,
+    
+    /* Lingkungan yang didukung */
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "types": [
+      "@cloudflare/workers-types", 
+      "vite/client"
+    ],
+    
+    /* Pengaturan HonoX JSX */
+    "jsx": "react-jsx",
+    "jsxImportSource": "hono/jsx"
+  },
+  "include": [
+    "app/**/*.ts",
+    "app/**/*.tsx",
+    "src/**/*.ts",
+    "vite.config.ts"
+  ]
+}
