@@ -3,14 +3,15 @@ import { createRoute } from 'honox/factory'
 export default createRoute(async (c) => {
   const db = c.env.DB;
   
-  // Mengambil daftar artikel beserta nama kategori dan email penulisnya
+  // KOREKSI FATAL: Menggunakan published_at sesuai dengan db/schema.sql
   const query = `
-    SELECT b.id, b.title, b.slug, b.status, c.name as category_name, u.email as author_email
+    SELECT b.id, b.title, b.slug, b.status, b.published_at, c.name as category_name, u.email as author_email
     FROM blogs b 
     LEFT JOIN categories c ON b.category_id = c.id 
     LEFT JOIN users u ON b.author_id = u.id
-    ORDER BY b.created_at DESC
+    ORDER BY b.published_at DESC
   `;
+  
   const { results: blogs } = await db.prepare(query).all();
 
   return c.render(
@@ -47,7 +48,12 @@ export default createRoute(async (c) => {
             ) : (
               blogs.map((b: any) => (
                 <tr key={b.id} className="hover:bg-gray-50 transition">
-                  <td className="p-4 font-semibold text-gray-900">{b.title}</td>
+                  <td className="p-4 font-semibold text-gray-900">
+                    {b.title}
+                    <div className="text-xs font-normal text-gray-400 mt-1">
+                      {new Date(b.published_at).toLocaleDateString('id-ID')}
+                    </div>
+                  </td>
                   <td className="p-4 text-gray-600 text-sm">{b.category_name || '-'}</td>
                   <td className="p-4 text-gray-500 text-sm">{b.author_email || 'Sistem'}</td>
                   <td className="p-4">
