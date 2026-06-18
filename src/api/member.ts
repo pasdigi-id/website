@@ -1,30 +1,26 @@
 import { Hono } from 'hono'
 import type { Env } from '../index'
 import { protectRoute } from '../middleware/auth'
+import { hashPassword } from '../services/crypto' // Pastikan layanan crypto ini ada di src/services/crypto.ts
 
 const memberApi = new Hono<{ Bindings: Env }>();
 
-// Lindungi semua endpoint di bawah rute ini (Minimal harus login sebagai member)
+// Lindungi semua endpoint di bawah rute ini
 memberApi.use('*', protectRoute('member'));
 
-// Endpoint: Mengambil daftar proyek beserta progress milestone milik klien
+// -------------------------------------------------------------------
+// 1. ENDPOINT: MENGAMBIL DAFTAR PROYEK & PROGRESS
+// -------------------------------------------------------------------
 memberApi.get('/my-projects', async (c) => {
   const db = c.env.DB;
   const kv = c.env.CACHE_KV;
-  
-  // payload.sub berisi user_id yang di-inject oleh token JWT saat login
   const payload = c.get('jwtPayload');
   const clientId = payload.sub;
-
   const cacheKey = `project_client_${clientId}`;
 
-  // 1. Cek Data di KV Cache Terlebih Dahulu (Super Cepat)
   const cachedData = await kv.get(cacheKey, 'json');
-  if (cachedData) {
-    return c.json(cachedData);
-  }
+  if (cachedData) return c.json(cachedData);
 
-  // 2. Jika Cache Kosong, Ambil dari D1 Database
   const query = `
     SELECT 
       p.id as project_id, p.title, p.status as project_status, p.end_date,
@@ -37,7 +33,6 @@ memberApi.get('/my-projects', async (c) => {
   
   const { results } = await db.prepare(query).bind(clientId).all();
 
-  // 3. Format Data Flat SQL menjadi JSON Tree / Bersarang
   const formattedProjects = results.reduce((acc: any, row: any) => {
     let project = acc.find((p: any) => p.id === row.project_id);
     if (!project) {
@@ -50,7 +45,6 @@ memberApi.get('/my-projects', async (c) => {
       };
       acc.push(project);
     }
-    // Jika proyek memiliki milestone (track_id tidak null)
     if (row.track_id) {
       project.tasks.push({
         id: row.track_id,
@@ -63,13 +57,52 @@ memberApi.get('/my-projects', async (c) => {
     return acc;
   }, []);
 
-  // 4. Simpan ke KV Cache selama 5 menit (300 detik) menggunakan waitUntil 
-  // agar proses penyimpanan tidak menahan response ke klien
-  c.executionCtx.waitUntil(
-    kv.put(cacheKey, JSON.stringify(formattedProjects), { expirationTtl: 300 })
-  );
-
+  c.executionCtx.waitUntil(kv.put(cacheKey, JSON.stringify(formattedProjects), { expirationTtl: 300 }));
   return c.json(formattedProjects);
+});
+
+
+// -------------------------------------------------------------------
+// 2. ENDPOINT: MENGAMBIL DATA PROFIL SAYA
+// -------------------------------------------------------------------
+memberApi.get('/profile', async (c) => {
+  const db = c.env.DB;
+  const payload = c.get('jwtPayload');
+  const userId = payload.sub;
+
+  const user = await db.prepare(
+    `SELECT email, role, crm_data FROM users WHERE id = ?`
+  ).bind(userId).first();
+
+  if (!user) return c.json({ error: 'Pengguna tidak ditemukan.' }, 404);
+  return c.json(user);
+});
+
+
+// -------------------------------------------------------------------
+// 3. ENDPOINT: MEMPERBARUI PASSWORD / DATA PROFIL
+// -------------------------------------------------------------------
+memberApi.put('/profile', async (c) => {
+  const db = c.env.DB;
+  const payload = c.get('jwtPayload');
+  const userId = payload.sub;
+  const { password } = await c.req.json();
+
+  try {
+    if (password) {
+      // Menghash password baru menggunakan fungsi dari src/services/crypto.ts
+      const hashedPw = await hashPassword(password);
+      await db.prepare(
+        `UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+      ).bind(hashedPw, userId).run();
+      
+      return c.json({ success: true, message: 'Password berhasil diperbarui.' });
+    }
+    
+    return c.json({ error: 'Tidak ada data yang diperbarui.' }, 400);
+  } catch (error) {
+    return c.json({ error: 'Gagal memperbarui profil.' }, 500);
+  }
 });
 
 export { memberApi };
