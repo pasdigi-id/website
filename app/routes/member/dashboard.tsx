@@ -1,49 +1,78 @@
 import { createRoute } from 'honox/factory'
-import { getCookie } from 'hono/cookie'
 
 export default createRoute(async (c) => {
-  const token = getCookie(c, 'auth_token');
-  const apiUrl = new URL('/api/member/my-projects', c.req.url).toString();
+  const db = c.env.DB;
   
-  let projects = [];
-  let errorMsg = null;
-
-  try {
-    const res = await fetch(apiUrl, { headers: { 'Cookie': `auth_token=${token}` } });
-    if (res.ok) projects = await res.json();
-    else errorMsg = "Sesi Anda telah berakhir atau terjadi kesalahan autentikasi.";
-  } catch (e) {
-    errorMsg = "Gagal terhubung ke server internal.";
+  // Karena folder ini dilindungi oleh _middleware.ts, kita bisa langsung mengambil ID User dari JWT
+  const payload = c.get('jwtPayload');
+  
+  // Keamanan ganda: Jika entah bagaimana payload kosong, tendang ke halaman login
+  if (!payload || !payload.sub) {
+    return c.redirect('/login');
   }
 
-  // Fungsi helper untuk mewarnai badge status ala monday.com
+  const clientId = payload.sub;
+  
+  // MENGAMBIL DATA SECARA LANGSUNG DARI DATABASE (Tanpa HTTP Fetch Internal)
+  const query = `
+    SELECT 
+      p.id as project_id, p.title, p.status as project_status, p.end_date,
+      pt.id as track_id, pt.title as task_title, pt.progress_percentage, pt.status as task_status, pt.notes_for_client
+    FROM projects p
+    LEFT JOIN project_tracks pt ON p.id = pt.project_id
+    WHERE p.client_id = ?
+    ORDER BY p.created_at DESC, pt.updated_at ASC
+  `;
+  
+  const { results } = await db.prepare(query).bind(clientId).all();
+
+  // Format data flat dari SQL menjadi struktur berjenjang (nested)
+  const projects = results.reduce((acc: any, row: any) => {
+    let project = acc.find((p: any) => p.id === row.project_id);
+    if (!project) {
+      project = {
+        id: row.project_id,
+        title: row.title,
+        status: row.project_status,
+        end_date: row.end_date,
+        tasks: []
+      };
+      acc.push(project);
+    }
+    if (row.track_id) {
+      project.tasks.push({
+        id: row.track_id,
+        title: row.task_title,
+        progress: row.progress_percentage,
+        status: row.task_status,
+        notes: row.notes_for_client
+      });
+    }
+    return acc;
+  }, []);
+
   const getStatusColor = (status: string) => {
     const s = status?.toLowerCase() || '';
-    if (s.includes('done') || s.includes('selesai')) return 'bg-[#00C875] text-white'; // Monday Green
-    if (s.includes('doing') || s.includes('proses')) return 'bg-[#FDAB3D] text-white'; // Monday Orange
-    if (s.includes('blocked') || s.includes('kendala')) return 'bg-[#E2445C] text-white'; // Monday Red
-    return 'bg-[#C4C4C4] text-white'; // Monday Grey (Default)
+    if (s.includes('done') || s.includes('selesai')) return 'bg-[#00C875] text-white';
+    if (s.includes('doing') || s.includes('proses')) return 'bg-[#FDAB3D] text-white';
+    if (s.includes('blocked') || s.includes('kendala')) return 'bg-[#E2445C] text-white';
+    return 'bg-[#C4C4C4] text-white';
   };
 
   return c.render(
     <div className="max-w-6xl mx-auto">
-      {/* Header Halaman */}
       <div className="mb-8 flex justify-between items-end">
         <div>
           <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Project Boards</h1>
-          <p className="text-sm text-slate-500 mt-1">Pantau perkembangan *task* dan *milestone* proyek Anda secara real-time.</p>
+          <p className="text-sm text-slate-500 mt-1">Pantau perkembangan task dan milestone proyek Anda secara real-time.</p>
         </div>
-        <button className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg text-sm font-semibold shadow-sm shadow-indigo-200 transition flex items-center gap-2">
+        <a href="/contact" className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg text-sm font-semibold shadow-sm shadow-indigo-200 transition flex items-center gap-2">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
           Request Layanan Baru
-        </button>
+        </a>
       </div>
 
-      {errorMsg ? (
-        <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg text-red-700 text-sm font-medium shadow-sm">
-          {errorMsg}
-        </div>
-      ) : projects.length === 0 ? (
+      {projects.length === 0 ? (
         <div className="bg-white rounded-xl border border-slate-200 p-16 text-center shadow-sm flex flex-col items-center">
           <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
             <svg className="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
@@ -59,7 +88,6 @@ export default createRoute(async (c) => {
           {projects.map((project: any) => (
             <div key={project.id} className="bg-white rounded-xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] border border-slate-200 overflow-hidden">
               
-              {/* Header "Board" Proyek */}
               <div className="bg-slate-50/80 px-6 py-4 border-b border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div className="flex items-center gap-3">
                   <div className="w-2 h-8 bg-indigo-500 rounded-full"></div>
@@ -85,7 +113,6 @@ export default createRoute(async (c) => {
                 </div>
               </div>
 
-              {/* Tabel Milestone ala Monday */}
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
@@ -105,7 +132,6 @@ export default createRoute(async (c) => {
                     ) : (
                       project.tasks.map((task: any) => (
                         <tr key={task.id} className="hover:bg-slate-50 transition group">
-                          {/* Nama Task & Notes */}
                           <td className="py-4 px-6 align-top">
                             <div className="font-semibold text-sm text-slate-800">{task.title}</div>
                             {task.notes && (
@@ -115,15 +141,11 @@ export default createRoute(async (c) => {
                               </div>
                             )}
                           </td>
-                          
-                          {/* Status Pill (Sleek) */}
                           <td className="py-4 px-6 align-middle text-center">
                             <div className={`inline-block px-3 py-1.5 rounded-md text-xs font-bold uppercase w-full max-w-[120px] shadow-sm ${getStatusColor(task.status)}`}>
                               {task.status}
                             </div>
                           </td>
-
-                          {/* Enterprise Progress Bar */}
                           <td className="py-4 px-6 align-middle">
                             <div className="flex items-center gap-3">
                               <div className="w-full bg-slate-100 rounded-full h-2.5 shadow-inner overflow-hidden border border-slate-200">
