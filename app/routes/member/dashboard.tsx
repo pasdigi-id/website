@@ -11,78 +11,141 @@ export default createRoute(async (c) => {
   try {
     const res = await fetch(apiUrl, { headers: { 'Cookie': `auth_token=${token}` } });
     if (res.ok) projects = await res.json();
-    else errorMsg = "Gagal memuat data proyek. Sesi Anda mungkin telah berakhir.";
+    else errorMsg = "Sesi Anda telah berakhir atau terjadi kesalahan autentikasi.";
   } catch (e) {
-    errorMsg = "Terjadi kesalahan koneksi ke server internal.";
+    errorMsg = "Gagal terhubung ke server internal.";
   }
 
+  // Fungsi helper untuk mewarnai badge status ala monday.com
+  const getStatusColor = (status: string) => {
+    const s = status?.toLowerCase() || '';
+    if (s.includes('done') || s.includes('selesai')) return 'bg-[#00C875] text-white'; // Monday Green
+    if (s.includes('doing') || s.includes('proses')) return 'bg-[#FDAB3D] text-white'; // Monday Orange
+    if (s.includes('blocked') || s.includes('kendala')) return 'bg-[#E2445C] text-white'; // Monday Red
+    return 'bg-[#C4C4C4] text-white'; // Monday Grey (Default)
+  };
+
   return c.render(
-    <main className="flex-grow p-6 md:p-10 bg-gray-50">
-      <header className="mb-8 border-b border-gray-200 pb-6">
-        <h1 className="text-3xl font-extrabold text-gray-900">Project Tracking</h1>
-        <p className="text-gray-500 mt-2">Pantau perkembangan pekerjaan Anda secara real-time.</p>
-      </header>
+    <div className="max-w-6xl mx-auto">
+      {/* Header Halaman */}
+      <div className="mb-8 flex justify-between items-end">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Project Boards</h1>
+          <p className="text-sm text-slate-500 mt-1">Pantau perkembangan *task* dan *milestone* proyek Anda secara real-time.</p>
+        </div>
+        <button className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg text-sm font-semibold shadow-sm shadow-indigo-200 transition flex items-center gap-2">
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
+          Request Layanan Baru
+        </button>
+      </div>
 
       {errorMsg ? (
-        <div className="bg-red-50 text-red-600 p-4 rounded-xl border border-red-200 font-bold">{errorMsg}</div>
+        <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg text-red-700 text-sm font-medium shadow-sm">
+          {errorMsg}
+        </div>
       ) : projects.length === 0 ? (
-        <div className="bg-white p-10 rounded-2xl border border-gray-200 text-center shadow-sm">
-          <p className="text-gray-500 mb-4">Belum ada proyek yang terdaftar di akun Anda saat ini.</p>
-          <a href="/contact" className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-bold hover:bg-blue-700 transition inline-block">
-            Hubungi Tim Kami
+        <div className="bg-white rounded-xl border border-slate-200 p-16 text-center shadow-sm flex flex-col items-center">
+          <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
+            <svg className="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+          </div>
+          <h3 className="text-lg font-bold text-slate-900 mb-1">Belum Ada Proyek</h3>
+          <p className="text-slate-500 text-sm mb-6 max-w-sm">Anda belum memiliki proyek yang sedang berjalan. Hubungi tim kami untuk memulai kolaborasi.</p>
+          <a href="/contact" className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-5 py-2 rounded-lg text-sm font-semibold transition shadow-sm">
+            Hubungi Tim Sales
           </a>
         </div>
       ) : (
-        <div className="space-y-8">
+        <div className="space-y-10">
           {projects.map((project: any) => (
-            <div key={project.id} className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-              <div className="bg-white border-b border-gray-100 px-6 py-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900">{project.title}</h2>
-                  <p className="text-sm text-gray-500 mt-1">Target Selesai: {project.end_date ? new Date(project.end_date).toLocaleDateString('id-ID') : 'Belum ditentukan'}</p>
+            <div key={project.id} className="bg-white rounded-xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] border border-slate-200 overflow-hidden">
+              
+              {/* Header "Board" Proyek */}
+              <div className="bg-slate-50/80 px-6 py-4 border-b border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-8 bg-indigo-500 rounded-full"></div>
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-900 leading-tight">{project.title}</h2>
+                    <div className="flex items-center gap-4 mt-1 text-xs font-medium text-slate-500">
+                      <span className="flex items-center gap-1">
+                        <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                        Tenggat: {project.end_date ? new Date(project.end_date).toLocaleDateString('id-ID') : '-'}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                        {project.tasks.length} Tasks
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <span className="px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide bg-blue-100 text-blue-800 border border-blue-200">
-                  {project.status}
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-semibold text-slate-500 uppercase">Status Proyek</span>
+                  <span className={`px-4 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider ${getStatusColor(project.status)} shadow-sm`}>
+                    {project.status || 'Perencanaan'}
+                  </span>
+                </div>
               </div>
 
-              <div className="p-6 bg-gray-50/50">
-                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Milestones & Progress</h3>
-                <div className="divide-y divide-gray-100 bg-white border border-gray-100 rounded-xl px-4">
-                  {project.tasks.length === 0 ? (
-                    <p className="text-sm text-gray-500 py-4 text-center">Belum ada tahapan pekerjaan yang dicatat.</p>
-                  ) : (
-                    project.tasks.map((task: any) => (
-                      <div key={task.id} className="py-5 flex flex-col md:flex-row md:items-center justify-between gap-6">
-                        <div className="flex-1">
-                          <h4 className="font-bold text-gray-800">{task.title}</h4>
-                          {task.notes && <p className="text-sm text-gray-600 mt-1 bg-gray-50 p-3 rounded-lg border border-gray-100">{task.notes}</p>}
-                        </div>
-                        
-                        <div className="w-full md:w-64 shrink-0">
-                          <div className="flex justify-between text-xs font-bold mb-2">
-                            <span className={task.progress === 100 ? "text-green-600" : "text-blue-600"}>
-                              {task.status.toUpperCase()}
-                            </span>
-                            <span className="text-gray-700">{task.progress}%</span>
-                          </div>
-                          <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden border border-gray-200">
-                            <div 
-                              className={`h-full transition-all duration-1000 ${task.progress === 100 ? 'bg-green-500' : 'bg-blue-600'}`}
-                              style={{ width: `${task.progress}%` }}
-                            ></div>
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
+              {/* Tabel Milestone ala Monday */}
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-white border-b border-slate-200">
+                      <th className="py-3 px-6 text-xs font-semibold text-slate-400 uppercase tracking-wider w-1/2">Nama Item / Task</th>
+                      <th className="py-3 px-6 text-xs font-semibold text-slate-400 uppercase tracking-wider w-1/4 text-center">Status</th>
+                      <th className="py-3 px-6 text-xs font-semibold text-slate-400 uppercase tracking-wider w-1/4">Progress</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {project.tasks.length === 0 ? (
+                      <tr>
+                        <td colSpan={3} className="py-8 text-center text-sm text-slate-400 bg-slate-50/50">
+                          Timeline pekerjaan sedang disusun oleh tim.
+                        </td>
+                      </tr>
+                    ) : (
+                      project.tasks.map((task: any) => (
+                        <tr key={task.id} className="hover:bg-slate-50 transition group">
+                          {/* Nama Task & Notes */}
+                          <td className="py-4 px-6 align-top">
+                            <div className="font-semibold text-sm text-slate-800">{task.title}</div>
+                            {task.notes && (
+                              <div className="mt-2 text-xs text-slate-500 bg-white border border-slate-200 p-2.5 rounded-lg shadow-sm flex items-start gap-2">
+                                <svg className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
+                                <span>{task.notes}</span>
+                              </div>
+                            )}
+                          </td>
+                          
+                          {/* Status Pill (Sleek) */}
+                          <td className="py-4 px-6 align-middle text-center">
+                            <div className={`inline-block px-3 py-1.5 rounded-md text-xs font-bold uppercase w-full max-w-[120px] shadow-sm ${getStatusColor(task.status)}`}>
+                              {task.status}
+                            </div>
+                          </td>
+
+                          {/* Enterprise Progress Bar */}
+                          <td className="py-4 px-6 align-middle">
+                            <div className="flex items-center gap-3">
+                              <div className="w-full bg-slate-100 rounded-full h-2.5 shadow-inner overflow-hidden border border-slate-200">
+                                <div 
+                                  className={`h-full rounded-full transition-all duration-1000 ${task.progress === 100 ? 'bg-[#00C875]' : 'bg-indigo-500'}`}
+                                  style={{ width: `${task.progress}%` }}
+                                ></div>
+                              </div>
+                              <span className="text-xs font-bold text-slate-600 w-8">{task.progress}%</span>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
           ))}
         </div>
       )}
-    </main>,
-    { title: 'Dashboard Proyek - Client Portal' }
+    </div>,
+    { title: 'Project Boards - Client Portal' }
   )
 })
