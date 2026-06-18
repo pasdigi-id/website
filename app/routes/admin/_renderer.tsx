@@ -17,7 +17,7 @@ export default jsxRenderer(({ children, title }) => {
       <body className="font-sans text-gray-800 antialiased bg-gray-100 flex h-screen overflow-hidden">
         
         {/* ========================================== */}
-        {/* SIDEBAR GLOBAL (Akan selalu muncul di /admin/*) */}
+        {/* SIDEBAR GLOBAL ADMIN */}
         {/* ========================================== */}
         <aside className="w-64 bg-gray-900 text-white flex-col hidden md:flex flex-shrink-0">
           <div className="h-16 flex items-center px-6 border-b border-gray-800 font-bold text-xl text-blue-400 tracking-tight">
@@ -48,9 +48,12 @@ export default jsxRenderer(({ children, title }) => {
           </div>
 
           <div className="p-4 border-t border-gray-800">
-            <button className="w-full bg-gray-800 text-gray-300 px-4 py-2 rounded-lg font-medium hover:bg-red-600 hover:text-white transition"
-              dangerouslySetInnerHTML={{ __html: 'Keluar' }}
-              onClick="document.cookie='auth_token=; Max-Age=0; path=/'; window.location.href='/';">
+            {/* LOGIKA LOGOUT YANG BENAR (Panggil Backend) */}
+            <button 
+              className="w-full bg-gray-800 text-gray-300 px-4 py-2 rounded-lg font-medium hover:bg-red-600 hover:text-white transition"
+              onclick="fetch('/api/auth/logout', { method: 'POST' }).finally(() => { window.location.href='/login'; });"
+            >
+              Keluar Sesi
             </button>
           </div>
         </aside>
@@ -71,7 +74,7 @@ export default jsxRenderer(({ children, title }) => {
             </div>
           </header>
 
-          {/* Area Render Dinamis (Isi halaman dashboard, pages, services akan masuk ke sini) */}
+          {/* Area Render Dinamis */}
           <div className="flex-1 overflow-y-auto w-full relative">
             {children}
           </div>
