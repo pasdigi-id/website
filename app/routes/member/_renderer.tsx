@@ -9,7 +9,6 @@ export default jsxRenderer(({ children, title }) => {
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>{title || 'Client Workspace - Pasdigi'}</title>
         
-        {/* Font Inter untuk standar Enterprise UI */}
         <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
         <Link href="/app/style.css" rel="stylesheet" />
         <Script src="/app/client.ts" async />
@@ -44,10 +43,10 @@ export default jsxRenderer(({ children, title }) => {
           </nav>
 
           <div className="p-4 border-t border-[#2D313A]">
-            {/* KOREKSI FATAL: onClick diubah menjadi onclick (huruf kecil semua) */}
+            {/* PERBAIKAN FATAL: Menggunakan fetch ke API logout backend untuk menghapus HTTP-Only cookie */}
             <button 
               className="flex items-center gap-3 w-full px-3 py-2.5 text-slate-400 hover:bg-red-500/10 hover:text-red-400 rounded-lg transition group"
-              onclick="document.cookie='auth_token=; Max-Age=0; path=/'; window.location.href='/login';"
+              onclick="fetch('/api/auth/logout', { method: 'POST' }).then(() => { window.location.href='/login'; });"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
               <span className="font-medium text-sm">Keluar Sesi</span>
