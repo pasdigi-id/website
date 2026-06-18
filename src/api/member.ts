@@ -1,11 +1,10 @@
 import { Hono } from 'hono'
 import type { Env } from '../index'
 import { protectRoute } from '../middleware/auth'
-import { hashPassword } from '../services/crypto' // Pastikan layanan crypto ini ada di src/services/crypto.ts
+import { hashPassword } from '../services/crypto'
 
 const memberApi = new Hono<{ Bindings: Env }>();
 
-// Lindungi semua endpoint di bawah rute ini
 memberApi.use('*', protectRoute('member'));
 
 // -------------------------------------------------------------------
@@ -61,7 +60,6 @@ memberApi.get('/my-projects', async (c) => {
   return c.json(formattedProjects);
 });
 
-
 // -------------------------------------------------------------------
 // 2. ENDPOINT: MENGAMBIL DATA PROFIL SAYA
 // -------------------------------------------------------------------
@@ -78,30 +76,48 @@ memberApi.get('/profile', async (c) => {
   return c.json(user);
 });
 
-
 // -------------------------------------------------------------------
-// 3. ENDPOINT: MEMPERBARUI PASSWORD / DATA PROFIL
+// 3. ENDPOINT: MEMPERBARUI PROFIL & PASSWORD
 // -------------------------------------------------------------------
 memberApi.put('/profile', async (c) => {
   const db = c.env.DB;
   const payload = c.get('jwtPayload');
   const userId = payload.sub;
-  const { password } = await c.req.json();
+  
+  // Tangkap semua field yang dikirim dari form frontend
+  const { password, name, company, phone, address } = await c.req.json();
 
   try {
+    // 1. Ambil data CRM lama untuk digabungkan dengan yang baru
+    const user = await db.prepare("SELECT crm_data FROM users WHERE id = ?").bind(userId).first();
+    let crmData: any = {};
+    if (user && user.crm_data) {
+      try { crmData = JSON.parse(user.crm_data as string); } catch(e){}
+    }
+
+    // 2. Perbarui nilai CRM jika ada inputan baru
+    if (name !== undefined) crmData.name = name;
+    if (company !== undefined) crmData.company = company;
+    if (phone !== undefined) crmData.phone = phone;
+    if (address !== undefined) crmData.address = address;
+
+    const crmDataString = JSON.stringify(crmData);
+
+    // 3. Simpan ke database (Cek apakah user ganti password juga atau hanya update profil)
     if (password) {
-      // Menghash password baru menggunakan fungsi dari src/services/crypto.ts
       const hashedPw = await hashPassword(password);
       await db.prepare(
-        `UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
-      ).bind(hashedPw, userId).run();
-      
-      return c.json({ success: true, message: 'Password berhasil diperbarui.' });
+        `UPDATE users SET password_hash = ?, crm_data = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+      ).bind(hashedPw, crmDataString, userId).run();
+    } else {
+      await db.prepare(
+        `UPDATE users SET crm_data = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+      ).bind(crmDataString, userId).run();
     }
     
-    return c.json({ error: 'Tidak ada data yang diperbarui.' }, 400);
+    return c.json({ success: true, message: 'Profil Anda berhasil diperbarui.' });
   } catch (error) {
-    return c.json({ error: 'Gagal memperbarui profil.' }, 500);
+    return c.json({ error: 'Gagal memperbarui profil. Terjadi kesalahan server.' }, 500);
   }
 });
 
