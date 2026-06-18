@@ -1,92 +1,173 @@
-import { jsxRenderer } from 'hono/jsx-renderer'
-import { Link, Script } from 'honox/server'
+import { createRoute } from 'honox/factory'
 
-export default jsxRenderer(({ children, title }) => {
-  return (
-    <html lang="id" className="antialiased">
-      <head>
-        <meta charSet="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>{title || 'Client Workspace - Pasdigi'}</title>
-        
-        {/* Font Inter untuk standar Enterprise UI */}
-        <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
-        <Link href="/app/style.css" rel="stylesheet" />
-        <Script src="/app/client.ts" async />
-        <link rel="icon" href="/favicon.ico" />
-      </head>
-      
-      <body className="bg-[#F7F9FC] text-slate-800 flex h-screen overflow-hidden" style={{ fontFamily: '"Inter", sans-serif' }}>
-        
-        {/* ========================================== */}
-        {/* SIDEBAR (Sleek Dark Modern SaaS) */}
-        {/* ========================================== */}
-        <aside className="w-64 bg-[#1C1F26] text-slate-300 flex flex-col shrink-0 border-r border-[#2D313A] shadow-xl z-20">
-          {/* Logo Area */}
-          <div className="h-16 flex items-center px-6 border-b border-[#2D313A] mb-4">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-lg">
-                <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-              </div>
-              <span className="font-bold text-lg text-white tracking-tight">Client<span className="text-indigo-400">Portal</span></span>
-            </div>
-          </div>
+export default createRoute(async (c) => {
+  const db = c.env.DB;
+  
+  // Karena folder ini dilindungi oleh _middleware.ts, kita bisa langsung mengambil ID User dari JWT
+  const payload = c.get('jwtPayload');
+  
+  // Keamanan ganda: Jika entah bagaimana payload kosong, tendang ke halaman login
+  if (!payload || !payload.sub) {
+    return c.redirect('/login');
+  }
 
-          {/* Navigation Links */}
-          <nav className="flex-1 px-4 space-y-1.5 overflow-y-auto">
-            <p className="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 mt-2">Workspace</p>
-            
-            <a href="/member/dashboard" className="flex items-center gap-3 px-3 py-2.5 bg-indigo-500/10 text-indigo-400 rounded-lg transition group border border-indigo-500/20">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
-              <span className="font-medium text-sm">Boards & Projects</span>
-            </a>
+  const clientId = payload.sub;
+  
+  // MENGAMBIL DATA SECARA LANGSUNG DARI DATABASE (Tanpa HTTP Fetch Internal)
+  const query = `
+    SELECT 
+      p.id as project_id, p.title, p.status as project_status, p.end_date,
+      pt.id as track_id, pt.title as task_title, pt.progress_percentage, pt.status as task_status, pt.notes_for_client
+    FROM projects p
+    LEFT JOIN project_tracks pt ON p.id = pt.project_id
+    WHERE p.client_id = ?
+    ORDER BY p.created_at DESC, pt.updated_at ASC
+  `;
+  
+  const { results } = await db.prepare(query).bind(clientId).all();
 
-            <a href="/member/profile" className="flex items-center gap-3 px-3 py-2.5 text-slate-400 hover:bg-[#2D313A] hover:text-white rounded-lg transition group">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-              <span className="font-medium text-sm">Akun & Profil</span>
-            </a>
-          </nav>
+  // Format data flat dari SQL menjadi struktur berjenjang (nested)
+  const projects = results.reduce((acc: any, row: any) => {
+    let project = acc.find((p: any) => p.id === row.project_id);
+    if (!project) {
+      project = {
+        id: row.project_id,
+        title: row.title,
+        status: row.project_status,
+        end_date: row.end_date,
+        tasks: []
+      };
+      acc.push(project);
+    }
+    if (row.track_id) {
+      project.tasks.push({
+        id: row.track_id,
+        title: row.task_title,
+        progress: row.progress_percentage,
+        status: row.task_status,
+        notes: row.notes_for_client
+      });
+    }
+    return acc;
+  }, []);
 
-          {/* Logout Area */}
-          <div className="p-4 border-t border-[#2D313A]">
-            <button 
-              className="flex items-center gap-3 w-full px-3 py-2.5 text-slate-400 hover:bg-red-500/10 hover:text-red-400 rounded-lg transition group"
-              onClick="document.cookie='auth_token=; Max-Age=0; path=/'; window.location.href='/login';"
-            >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
-              <span className="font-medium text-sm">Keluar Sesi</span>
-            </button>
-          </div>
-        </aside>
+  const getStatusColor = (status: string) => {
+    const s = status?.toLowerCase() || '';
+    if (s.includes('done') || s.includes('selesai')) return 'bg-[#00C875] text-white';
+    if (s.includes('doing') || s.includes('proses')) return 'bg-[#FDAB3D] text-white';
+    if (s.includes('blocked') || s.includes('kendala')) return 'bg-[#E2445C] text-white';
+    return 'bg-[#C4C4C4] text-white';
+  };
 
-        {/* ========================================== */}
-        {/* MAIN CONTENT AREA */}
-        {/* ========================================== */}
-        <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
-          
-          {/* Topbar Clean Minimalist */}
-          <header className="h-16 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-8 z-10 shrink-0 shadow-sm">
-            <div className="flex items-center gap-2 text-sm font-medium text-slate-600">
-              <span className="bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200">Main Workspace</span>
-            </div>
-            <div className="flex items-center gap-4">
-              <button className="relative text-slate-400 hover:text-indigo-600 transition">
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
-                <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
-              </button>
-              <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center text-sm ring-2 ring-white shadow-sm cursor-pointer">
-                ME
-              </div>
-            </div>
-          </header>
-
-          {/* Dynamic Content */}
-          <div className="flex-1 overflow-y-auto w-full relative p-8">
-            {children}
-          </div>
-
+  return c.render(
+    <div className="max-w-6xl mx-auto">
+      <div className="mb-8 flex justify-between items-end">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Project Boards</h1>
+          <p className="text-sm text-slate-500 mt-1">Pantau perkembangan task dan milestone proyek Anda secara real-time.</p>
         </div>
-      </body>
-    </html>
+        <a href="/contact" className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg text-sm font-semibold shadow-sm shadow-indigo-200 transition flex items-center gap-2">
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
+          Request Layanan Baru
+        </a>
+      </div>
+
+      {projects.length === 0 ? (
+        <div className="bg-white rounded-xl border border-slate-200 p-16 text-center shadow-sm flex flex-col items-center">
+          <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
+            <svg className="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+          </div>
+          <h3 className="text-lg font-bold text-slate-900 mb-1">Belum Ada Proyek</h3>
+          <p className="text-slate-500 text-sm mb-6 max-w-sm">Anda belum memiliki proyek yang sedang berjalan. Hubungi tim kami untuk memulai kolaborasi.</p>
+          <a href="/contact" className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-5 py-2 rounded-lg text-sm font-semibold transition shadow-sm">
+            Hubungi Tim Sales
+          </a>
+        </div>
+      ) : (
+        <div className="space-y-10">
+          {projects.map((project: any) => (
+            <div key={project.id} className="bg-white rounded-xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] border border-slate-200 overflow-hidden">
+              
+              <div className="bg-slate-50/80 px-6 py-4 border-b border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-8 bg-indigo-500 rounded-full"></div>
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-900 leading-tight">{project.title}</h2>
+                    <div className="flex items-center gap-4 mt-1 text-xs font-medium text-slate-500">
+                      <span className="flex items-center gap-1">
+                        <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                        Tenggat: {project.end_date ? new Date(project.end_date).toLocaleDateString('id-ID') : '-'}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                        {project.tasks.length} Tasks
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-semibold text-slate-500 uppercase">Status Proyek</span>
+                  <span className={`px-4 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider ${getStatusColor(project.status)} shadow-sm`}>
+                    {project.status || 'Perencanaan'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-white border-b border-slate-200">
+                      <th className="py-3 px-6 text-xs font-semibold text-slate-400 uppercase tracking-wider w-1/2">Nama Item / Task</th>
+                      <th className="py-3 px-6 text-xs font-semibold text-slate-400 uppercase tracking-wider w-1/4 text-center">Status</th>
+                      <th className="py-3 px-6 text-xs font-semibold text-slate-400 uppercase tracking-wider w-1/4">Progress</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {project.tasks.length === 0 ? (
+                      <tr>
+                        <td colSpan={3} className="py-8 text-center text-sm text-slate-400 bg-slate-50/50">
+                          Timeline pekerjaan sedang disusun oleh tim.
+                        </td>
+                      </tr>
+                    ) : (
+                      project.tasks.map((task: any) => (
+                        <tr key={task.id} className="hover:bg-slate-50 transition group">
+                          <td className="py-4 px-6 align-top">
+                            <div className="font-semibold text-sm text-slate-800">{task.title}</div>
+                            {task.notes && (
+                              <div className="mt-2 text-xs text-slate-500 bg-white border border-slate-200 p-2.5 rounded-lg shadow-sm flex items-start gap-2">
+                                <svg className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
+                                <span>{task.notes}</span>
+                              </div>
+                            )}
+                          </td>
+                          <td className="py-4 px-6 align-middle text-center">
+                            <div className={`inline-block px-3 py-1.5 rounded-md text-xs font-bold uppercase w-full max-w-[120px] shadow-sm ${getStatusColor(task.status)}`}>
+                              {task.status}
+                            </div>
+                          </td>
+                          <td className="py-4 px-6 align-middle">
+                            <div className="flex items-center gap-3">
+                              <div className="w-full bg-slate-100 rounded-full h-2.5 shadow-inner overflow-hidden border border-slate-200">
+                                <div 
+                                  className={`h-full rounded-full transition-all duration-1000 ${task.progress === 100 ? 'bg-[#00C875]' : 'bg-indigo-500'}`}
+                                  style={{ width: `${task.progress}%` }}
+                                ></div>
+                              </div>
+                              <span className="text-xs font-bold text-slate-600 w-8">{task.progress}%</span>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>,
+    { title: 'Project Boards - Client Portal' }
   )
 })
